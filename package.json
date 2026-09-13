@@ -8,9 +8,6 @@
     "start": "next start",
     "lint": "eslint"
   },
-  "pnpm": {
-  "onlyBuiltDependencies": ["esbuild"]
-  },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
     "cheerio": "^1.2.0",
