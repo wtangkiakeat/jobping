@@ -60,6 +60,7 @@ async function scrapeHackerNews() {
 
   let savedCount = 0;
   let skippedCount = 0;
+  let duplicateCount = 0;
 
   for (const job of jobs) {
     // 检查 title 和 url 不能为空（数据库要求）
@@ -79,17 +80,25 @@ async function scrapeHackerNews() {
     });
 
     if (error) {
-      console.log(`❌ 保存失败: ${job.title.slice(0, 40)}...`);
-      console.log(`   原因: ${error.message}`);
-      skippedCount++;
-    } else {
-      savedCount++;
+        // 判断是不是"重复"错误
+        if (error.message.includes('duplicate') || error.code === '23505') {
+          // 是重复 → 静默跳过（不打印失败）
+          duplicateCount++;
+        } else {
+          // 真的失败
+          console.log(`❌ 保存失败: ${job.title.slice(0, 40)}...`);
+          console.log(`   原因: ${error.message}`);
+          skippedCount++;
+        }
+      } else {
+        savedCount++;
+      }
     }
-  }
 
-  console.log(`\n🎉 完成！`);
-  console.log(`   ✅ 成功保存: ${savedCount} 条`);
-  console.log(`   ⚠️  跳过: ${skippedCount} 条`);
+    console.log(`\n🎉 完成！`);
+    console.log(`   ✅ 新增: ${savedCount} 条`);
+    console.log(`   ♻️  重复跳过: ${duplicateCount} 条`);
+    console.log(`   ⚠️  错误跳过: ${skippedCount} 条`);
 }
 
 scrapeHackerNews();
