@@ -2,10 +2,14 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+
 
 export async function GET(request: Request) {
-  try {
+    try {
+    // 建立 Resend 连接
+    const resend = new Resend(process.env.RESEND_API_KEY);
+  
+    // 🔒 验证 Token
     // 🔒 验证 Token（跟 scrape 一样）
     const authHeader = request.headers.get('authorization');
     const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
