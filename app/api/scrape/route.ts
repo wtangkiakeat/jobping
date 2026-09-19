@@ -93,11 +93,11 @@ export async function GET(request: Request) {
       errors: errorCount,
       timestamp: new Date().toISOString(),
     });
-  } catch (err) {
-    console.error('爬虫失败:', err);
-    return NextResponse.json({
-      success: false,
-      error: (err as Error).message,
-    });
+    } catch (err) {
+    console.error('Error:', err);
+    return NextResponse.json(
+      { success: false, error: 'Server error' },
+      { status: 500 }
+    );
   }
 }

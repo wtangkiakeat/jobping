@@ -131,13 +131,13 @@ export async function GET(request: Request) {
       emailsSent,
       usersSkipped,
     });
-  } catch (err) {
-    console.error('发送通知失败:', err);
-    return NextResponse.json({
-      success: false,
-      error: (err as Error).message,
-    });
-  }
+    } catch (err) {
+    console.error('Error:', err);
+    return NextResponse.json(
+      { success: false, error: 'Server error' },
+      { status: 500 }
+  );
+}
 }
 
 // 🎨 生成邮件 HTML
