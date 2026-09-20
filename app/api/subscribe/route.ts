@@ -1,56 +1,64 @@
 import { supabaseAdmin } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
-    // 1️⃣ 读取用户提交的数据
+    // 🛡️ Rate limit: max 5 requests per IP per minute
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    if (!rateLimit(ip)) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests, please try again later' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { email, keywords } = body;
 
-    // 2️⃣ 验证 email
-    if (!email || !email.includes('@')) {
+    // Strict email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email) || email.length > 255) {
       return NextResponse.json(
-        { success: false, error: '请输入有效的邮箱' },
+        { success: false, error: 'Please enter a valid email' },
         { status: 400 }
       );
     }
 
-    // 3️⃣ 验证关键词
-    if (!keywords || keywords.trim().length === 0) {
+    // Keyword validation
+    if (!keywords || keywords.trim().length === 0 || keywords.length > 500) {
       return NextResponse.json(
-        { success: false, error: '请输入至少一个关键词' },
+        { success: false, error: 'Please enter valid keywords (max 500 chars)' },
         { status: 400 }
       );
     }
 
-    // 4️⃣ 检查是否已注册
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanKeywords = keywords.trim();
+
+    // Check if already registered
     const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id')
-      .eq('email', email.toLowerCase().trim())
+      .eq('email', cleanEmail)
       .single();
 
     if (existingUser) {
-      // 已存在 → 更新关键词
-      const { error: updateError } = await supabaseAdmin
+      await supabaseAdmin
         .from('users')
-        .update({ keywords: keywords.trim() })
+        .update({ keywords: cleanKeywords })
         .eq('id', existingUser.id);
-
-      if (updateError) {
-        throw new Error(updateError.message);
-      }
 
       return NextResponse.json({
         success: true,
-        message: '已更新你的订阅关键词！',
+        message: 'Your keywords have been updated!',
       });
     }
 
-    // 5️⃣ 新用户 → 插入
+    // New user
     const { error: insertError } = await supabaseAdmin.from('users').insert({
-      email: email.toLowerCase().trim(),
-      keywords: keywords.trim(),
+      email: cleanEmail,
+      keywords: cleanKeywords,
     });
 
     if (insertError) {
@@ -59,11 +67,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: '订阅成功！你会收到匹配的岗位通知。',
+      message: 'Subscribed! You will receive matching job alerts.',
     });
   } catch (err) {
+    // 🔒 Log internally, don't leak to user
+    console.error('Subscribe error:', err);
     return NextResponse.json(
-      { success: false, error: (err as Error).message },
+      { success: false, error: 'Server error, please try again' },
       { status: 500 }
     );
   }
