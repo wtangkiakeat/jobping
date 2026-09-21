@@ -1,16 +1,10 @@
 import { supabaseAdmin } from '@/lib/supabase';
-import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
-
-
+import nodemailer from 'nodemailer';
 
 export async function GET(request: Request) {
-    try {
-    // 建立 Resend 连接
-    const resend = new Resend(process.env.RESEND_API_KEY);
-  
-    // 🔒 验证 Token
-    // 🔒 验证 Token（跟 scrape 一样）
+  try {
+    // 🔒 Check token
     const authHeader = request.headers.get('authorization');
     const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
 
@@ -21,31 +15,35 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log('📧 开始发送通知...');
+    // 📧 Connect to Gmail
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
 
-    // 1️⃣ 查所有用户
+    // 1️⃣ Get all users
     const { data: users, error: usersError } = await supabaseAdmin
       .from('users')
       .select('*');
 
     if (usersError) {
-      throw new Error(`查用户失败: ${usersError.message}`);
+      throw new Error(usersError.message);
     }
-
-    console.log(`👥 找到 ${users.length} 个用户`);
 
     let emailsSent = 0;
     let usersSkipped = 0;
 
-    // 2️⃣ 对每个用户处理
+    // 2️⃣ Handle each user
     for (const user of users) {
-      // 跳过没关键词的用户
       if (!user.keywords) {
         usersSkipped++;
         continue;
       }
 
-      // 3️⃣ 处理关键词
+      // 3️⃣ Clean keywords
       const keywords = user.keywords
         .split(',')
         .map((k: string) => k.trim().toLowerCase())
@@ -56,12 +54,12 @@ export async function GET(request: Request) {
         continue;
       }
 
-      // 4️⃣ 构建搜索条件
+      // 4️⃣ Build search
       const orConditions = keywords
         .map((k: string) => `title.ilike.%${k}%`)
         .join(',');
 
-      // 5️⃣ 查匹配的岗位
+      // 5️⃣ Find matching jobs
       const { data: matchedJobs } = await supabaseAdmin
         .from('jobs')
         .select('*')
@@ -69,14 +67,12 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      // 没匹配就跳过
       if (!matchedJobs || matchedJobs.length === 0) {
-        console.log(`⚠️  ${user.email}: 没有匹配岗位`);
         usersSkipped++;
         continue;
       }
 
-      // 6️⃣ 查已发过的岗位（防重复）
+      // 6️⃣ Find jobs already sent
       const { data: sentNotifications } = await supabaseAdmin
         .from('notifications')
         .select('job_id')
@@ -86,44 +82,36 @@ export async function GET(request: Request) {
         (sentNotifications || []).map((n) => n.job_id)
       );
 
-      // 过滤掉已发过的
+      // 7️⃣ Keep only new jobs
       const newJobs = matchedJobs.filter((job) => !sentJobIds.has(job.id));
 
       if (newJobs.length === 0) {
-        console.log(`⚠️  ${user.email}: 没有新岗位（都发过了）`);
         usersSkipped++;
         continue;
       }
 
-      // 7️⃣ 生成邮件 HTML
-      const emailHtml = generateEmailHtml(newJobs, keywords);
-
-      // 8️⃣ 发送邮件
-      const { data: emailData, error: emailError } = await resend.emails.send({
-        from: 'JobPing <onboarding@resend.dev>',
-        to: user.email,
-        subject: `🎯 ${newJobs.length} 个新岗位匹配你的搜索`,
-        html: emailHtml,
-      });
-
-      if (emailError) {
-        console.error(`❌ 发给 ${user.email} 失败:`, emailError);
+      // 8️⃣ Send email via Gmail
+      try {
+        await transporter.sendMail({
+          from: `JobPing <${process.env.GMAIL_USER}>`,
+          to: user.email,
+          subject: `🎯 ${newJobs.length} new jobs match your search`,
+          html: generateEmailHtml(newJobs, keywords),
+        });
+      } catch (emailError) {
+        console.error(`Failed to send to ${user.email}:`, emailError);
         continue;
       }
 
-      console.log(`✅ 发给 ${user.email}: ${newJobs.length} 个岗位`);
       emailsSent++;
 
-      // 9️⃣ 记录已发送（防重复）
-      const notificationRecords = newJobs.map((job) => ({
+      // 9️⃣ Record as sent
+      const records = newJobs.map((job) => ({
         user_id: user.id,
         job_id: job.id,
       }));
-
-      await supabaseAdmin.from('notifications').insert(notificationRecords);
+      await supabaseAdmin.from('notifications').insert(records);
     }
-
-    console.log(`🎉 完成! 发送 ${emailsSent} 封, 跳过 ${usersSkipped} 个`);
 
     return NextResponse.json({
       success: true,
@@ -131,30 +119,29 @@ export async function GET(request: Request) {
       emailsSent,
       usersSkipped,
     });
-    } catch (err) {
-    console.error('Error:', err);
+  } catch (err) {
+    // 🔒 Log privately, hide details from user
+    console.error('Notification error:', err);
     return NextResponse.json(
       { success: false, error: 'Server error' },
       { status: 500 }
-  );
-}
+    );
+  }
 }
 
-// 🎨 生成邮件 HTML
+// 🎨 Email template
 function generateEmailHtml(jobs: any[], keywords: string[]): string {
   const jobCards = jobs
     .map(
       (job) => `
-    <div style="border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-      <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #000;">
-        ${job.title}
-      </h3>
-      <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">
-        🏢 ${job.company} · 📍 ${job.location || 'Remote'}
+    <div style="border: 1px solid #e5e5e5; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+      <h3 style="margin: 0 0 6px 0; font-size: 16px; color: #111311;">${job.title}</h3>
+      <p style="margin: 0 0 10px 0; color: #5B6152; font-size: 14px;">
+        ${job.company} · ${job.location || 'Remote'}
       </p>
-      <a href="${job.url}" 
-         style="display: inline-block; margin-top: 8px; padding: 8px 16px; background: #000; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px;">
-        查看岗位 →
+      <a href="${job.url}"
+         style="display: inline-block; padding: 8px 16px; background: #1D5C3F; color: #fff; text-decoration: none; border-radius: 8px; font-size: 14px;">
+        View job →
       </a>
     </div>
   `
@@ -162,16 +149,14 @@ function generateEmailHtml(jobs: any[], keywords: string[]): string {
     .join('');
 
   return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-      <h1 style="font-size: 24px; color: #000;">JobPing 🎯</h1>
-      <p style="color: #666;">
-        找到 <strong>${jobs.length}</strong> 个匹配你关键词（${keywords.join(', ')}）的新岗位：
+    <div style="font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #111311;">
+      <h1 style="font-size: 22px; margin: 0 0 8px 0;">JobPing 🎯</h1>
+      <p style="color: #5B6152; margin: 0 0 24px 0;">
+        ${jobs.length} new jobs match your keywords (${keywords.join(', ')}):
       </p>
-      <div style="margin-top: 24px;">
-        ${jobCards}
-      </div>
+      ${jobCards}
       <p style="margin-top: 32px; color: #999; font-size: 12px;">
-        你收到这封邮件是因为订阅了 JobPing 岗位提醒。
+        You're receiving this because you subscribed to JobPing job alerts.
       </p>
     </div>
   `;

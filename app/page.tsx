@@ -330,25 +330,24 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      {/* ── PROOF ── */}
+            {/* ── WHY ── */}
       <section className="proof">
         <h2 className="proof-title" data-rv>
-          People stopped refreshing job boards.
+          Built by a student who kept missing jobs.
         </h2>
         <div className="proof-grid">
           {[
             {
-              q: 'Caught a posting that closed in a day. I applied because JobPing pinged me at breakfast.',
-              c: 'CS senior, new-grad roles',
+              q: 'Checks new postings every morning, so you hear about roles while they are still open.',
+              c: 'Daily scan',
             },
             {
-              q: 'I stopped checking boards entirely. It just shows up when something actually fits.',
-              c: 'Bootcamp grad, remote search',
+              q: 'You only get jobs you have not seen before. No repeated emails for the same posting.',
+              c: 'No duplicates',
             },
             {
-              q: 'Set it once, forgot about it, then got three real matches in the first week.',
-              c: 'Second-year, internship hunt',
+              q: 'No account, no password, no dashboard. Just your email and a few keywords.',
+              c: 'Free and simple',
             },
           ].map((t, i) => (
             <figure
