@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+const SITE_URL = 'https://jobping-sepia.vercel.app';
 export async function GET(request: Request) {
   try {
     // 🔒 Check token
@@ -92,11 +93,16 @@ export async function GET(request: Request) {
 
       // 8️⃣ Send email via Gmail
       try {
+        const unsubscribeUrl = `${SITE_URL}/unsubscribe?id=${user.id}`;
+
         await transporter.sendMail({
           from: `JobPing <${process.env.GMAIL_USER}>`,
           to: user.email,
           subject: `🎯 ${newJobs.length} new jobs match your search`,
-          html: generateEmailHtml(newJobs, keywords),
+          html: generateEmailHtml(newJobs, keywords, unsubscribeUrl),
+          list: {
+            unsubscribe: { url: unsubscribeUrl, comment: 'Unsubscribe from JobPing' },
+          },
         });
       } catch (emailError) {
         console.error(`Failed to send to ${user.email}:`, emailError);
@@ -130,7 +136,7 @@ export async function GET(request: Request) {
 }
 
 // 🎨 Email template
-function generateEmailHtml(jobs: any[], keywords: string[]): string {
+function generateEmailHtml(jobs: any[], keywords: string[], unsubscribeUrl: string): string {
   const jobCards = jobs
     .map(
       (job) => `
@@ -157,6 +163,7 @@ function generateEmailHtml(jobs: any[], keywords: string[]): string {
       ${jobCards}
       <p style="margin-top: 32px; color: #999; font-size: 12px;">
         You're receiving this because you subscribed to JobPing job alerts.
+        <a href="${unsubscribeUrl}" style="color: #999;">Unsubscribe</a>
       </p>
     </div>
   `;

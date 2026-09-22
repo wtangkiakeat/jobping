@@ -367,7 +367,7 @@ export default function Home() {
       <section className="sub" id="subscribe">
         <div className="sub-inner" data-rv>
           <h2>Start getting matches</h2>
-          <p className="sub-lede">Free. One email, a few keywords, done.</p>
+          <p className="sub-lede">Free. One email, a few keywords, done. Unsubscribe anytime.</p>
 
           <div className="form">
             <input
