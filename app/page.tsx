@@ -147,7 +147,7 @@ export default function Home() {
 
   const steps = [
     { t: 'Pick your keywords', d: 'React, remote, new grad, Python — whatever your search actually looks like.' },
-    { t: 'JobPing watches the boards', d: 'Every morning it sweeps fresh postings and scores them against your list.' },
+    { t: 'JobPing watches the boards', d: 'Every morning it checks fresh postings against your keywords.'},
     { t: 'The match lands in your inbox', d: 'Same-day, one clean email. No dashboard to remember to open.' },
   ];
 
@@ -230,7 +230,7 @@ export default function Home() {
                   <div className="ping-cta">View role</div>
                 </div>
                 <span className="ping-orb" />
-                <span className="ping-score">94% match</span>
+                <span className="ping-score">Matches: react</span>
               </article>
             </div>
           </div>
@@ -281,12 +281,12 @@ export default function Home() {
                   </div>
 
                   <div className={`screen s1 ${step === 1 ? 'on' : ''}`}>
-                    <p className="screen-label">Scanning 4,182 new postings</p>
+                    <p className="screen-label">Scanning today's new postings</p>
                     <div className="rows">
                       {[82, 64, 93, 47, 71].map((w, i) => (
                         <div className="row" key={i} style={{ '--w': `${w}%`, '--i': i } as React.CSSProperties}>
                           <span className="row-bar" />
-                          <span className="row-pct">{w}</span>
+                          
                         </div>
                       ))}
                     </div>
