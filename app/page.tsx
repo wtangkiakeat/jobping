@@ -378,10 +378,11 @@ export default function Home() {
             />
             <input
               type="text"
-              placeholder="react, remote, python"
+              placeholder="python, software engineer, remote"
               value={keywords}
               onChange={(e) => setKeywords(e.target.value)}
             />
+            <p className="hint">Separate keywords with commas.</p>
             <button onClick={handleSubmit} disabled={status === 'loading'}>
               {status === 'loading' ? 'Setting up…' : 'Subscribe free'}
             </button>
@@ -632,6 +633,7 @@ html{scroll-behavior:smooth}
 .form input{padding:16px 18px; border-radius:13px; border:1px solid rgba(255,255,255,.18);
   font-size:16px; background:rgba(255,255,255,.12); color:#fff; transition:background .25s, border-color .25s}
 .form input::placeholder{color:rgba(255,255,255,.55)}
+.hint{margin:-4px 0 2px; font-size:13px; color:rgba(255,255,255,.7); text-align:left}
 .form input:focus{outline:none; background:rgba(255,255,255,.2); border-color:rgba(255,255,255,.6)}
 .form button{padding:16px; border-radius:13px; border:none; cursor:pointer; background:#fff;
   color:var(--pine); font-weight:700; font-size:16px;

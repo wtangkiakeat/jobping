@@ -41,7 +41,8 @@ export async function GET(request: Request) {
     $('tr.athing').each((_index, row) => {
       const titleEl = $(row).find('.titleline a').first();
       const title = titleEl.text().trim();
-      const url = titleEl.attr('href') || '';
+      const rawUrl = titleEl.attr('href') || '';
+      const url = rawUrl ? new URL(rawUrl, 'https://news.ycombinator.com/').href : '';
 
       if (!title || !url) return;
 
