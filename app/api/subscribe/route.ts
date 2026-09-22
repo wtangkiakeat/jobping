@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 import { rateLimit } from '@/lib/rate-limit';
+import { correctKeywords } from '@/lib/spell';
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { email, keywords } = body;
 
-    // Strict email validation
+    // ✅ Check email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email) || email.length > 255) {
       return NextResponse.json(
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Keyword validation
+    // ✅ Check keywords
     if (!keywords || keywords.trim().length === 0 || keywords.length > 500) {
       return NextResponse.json(
         { success: false, error: 'Please enter valid keywords (max 500 chars)' },
@@ -33,10 +34,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const cleanEmail = email.toLowerCase().trim();
-    const cleanKeywords = keywords.trim();
+    // 🔤 Fix typos (Levenshtein)
+    const { corrected, changes } = correctKeywords(keywords);
 
-    // Check if already registered
+    if (!corrected) {
+      return NextResponse.json(
+        { success: false, error: 'Please enter at least one keyword' },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanKeywords = corrected;
+
+    // Tell the user what we fixed
+    const fixNote = changes.length
+      ? ` We fixed: ${changes.map((c) => `${c.from} → ${c.to}`).join(', ')}.`
+      : '';
+
+    // Already subscribed? → update keywords
     const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id')
@@ -51,11 +67,11 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: 'Your keywords have been updated!',
+        message: 'Your keywords have been updated!' + fixNote,
       });
     }
 
-    // New user
+    // New user → save
     const { error: insertError } = await supabaseAdmin.from('users').insert({
       email: cleanEmail,
       keywords: cleanKeywords,
@@ -67,10 +83,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Subscribed! You will receive matching job alerts.',
+      message: 'Subscribed! You will receive matching job alerts.' + fixNote,
     });
   } catch (err) {
-    // 🔒 Log internally, don't leak to user
+    // 🔒 Log privately, don't leak details
     console.error('Subscribe error:', err);
     return NextResponse.json(
       { success: false, error: 'Server error, please try again' },

@@ -527,7 +527,7 @@ html{scroll-behavior:smooth}
 .scroll-hint span{width:1px; height:30px; background:linear-gradient(var(--line),var(--pine))}
 
 /* ── sticky 3D stage ── */
-.stage{position:relative; height:310vh} 
+.stage{position:relative; height:400vh} 
 .stage-sticky{position:sticky; top:0; height:100vh; display:flex; align-items:center;
   border-top:1px solid var(--line); background:
     radial-gradient(700px 420px at 72% 50%, rgba(29,92,63,.07), transparent 70%), var(--base)}
